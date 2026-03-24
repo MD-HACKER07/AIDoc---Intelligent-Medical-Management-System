@@ -1,0 +1,1117 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { Send, Loader2, User, Bot, Paperclip, X, Brain, LogOut, History, Calendar, Clock, AlertCircle, MapPin, Phone } from 'lucide-react';
+import { generateChatResponse } from '../services/api';
+import { auth } from '../config/firebase';
+import { chatService } from '../services/chatService';
+import type { Message, PatientInfo } from '../types';
+import { DownloadOptions } from './DownloadOptions';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
+
+// Get the current version of the PDF.js library
+const pdfVersion = pdfjsLib.version;
+console.log('PDF.js version:', pdfVersion);
+
+// Set worker URL with the exact same version as the library
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfVersion}/pdf.worker.min.js`;
+
+// Replace with a more resilient approach:
+// Configure PDF.js worker - try different CDNs for better reliability
+const configurePdfWorker = () => {
+  try {
+    // Get the current version of the PDF.js library
+    const pdfVersion = pdfjsLib.version;
+    console.log('PDF.js version:', pdfVersion);
+    
+    // Try multiple CDNs in order of preference
+    const cdnUrls = [
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfVersion}/pdf.worker.min.js`,
+      `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.js`,
+      `https://unpkg.com/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.js`
+    ];
+    
+    // Use the first one
+    pdfjsLib.GlobalWorkerOptions.workerSrc = cdnUrls[0];
+    
+    console.log('PDF worker set to:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+  } catch (error) {
+    console.error('Error configuring PDF worker:', error);
+  }
+};
+
+// Call the configuration function
+configurePdfWorker();
+
+// Add a function to validate the PDF worker
+const validatePDFWorker = async (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    try {
+      // Check if worker file exists by making a HEAD request to the CDN
+      const workerUrl = pdfjsLib.GlobalWorkerOptions.workerSrc;
+      console.log('Checking worker URL:', workerUrl);
+      
+      fetch(workerUrl, { method: 'HEAD' })
+        .then(response => {
+          if (response.ok) {
+            console.log('PDF worker is available at:', workerUrl);
+            resolve(true);
+          } else {
+            console.error('PDF worker not found at:', workerUrl);
+            resolve(false);
+          }
+        })
+        .catch(error => {
+          console.error('Error checking PDF worker:', error);
+          resolve(false);
+        });
+    } catch (error) {
+      console.error('Error validating PDF worker:', error);
+      resolve(false);
+    }
+  });
+};
+
+const generateAnalysis = (messages: Message[]) => {
+  // Extract symptoms and key points from the conversation
+  const symptoms = messages
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join('\n');
+
+  const aiResponses = messages
+    .filter(m => m.role === 'assistant')
+    .map(m => m.content)
+    .join('\n');
+
+  return `# AI Analysis Report
+Generated on: ${new Date().toLocaleString()}
+
+## Patient Symptoms and Concerns
+${symptoms}
+
+## AI Assessment and Recommendations
+${aiResponses}
+
+## Key Points and Follow-up
+- Consultation conducted via AI medical assistant
+- Patient concerns documented and addressed
+- Recommendations provided based on symptoms
+- Follow-up advised if symptoms persist`;
+};
+
+const generateMedicalSummary = (messages: Message[], patientInfo: PatientInfo) => {
+  return `# Medical Summary
+Generated on: ${new Date().toLocaleString()}
+
+## Patient Information
+- Name: ${patientInfo.name}
+- Age: ${patientInfo.age}
+- Gender: ${patientInfo.gender}
+- Country: ${patientInfo.country}
+
+## Medical History
+${patientInfo.medicalHistory.map(item => `- ${item}`).join('\n')}
+
+## Current Medications
+${patientInfo.currentMedications.map(item => `- ${item}`).join('\n')}
+
+## Consultation Summary
+${messages
+  .filter(m => m.role === 'assistant' && m.content.includes('Assessment'))
+  .map(m => m.content)
+  .join('\n\n')}`;
+};
+
+// Add this new component for a more sophisticated typing animation
+const TypingIndicator = () => (
+  <motion.div 
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: 10 }}
+    className="flex flex-col space-y-2 p-4 bg-gradient-to-r from-blue-50 to-white rounded-xl border border-blue-100"
+  >
+    <div className="flex items-center space-x-2">
+      <Bot className="w-4 h-4 text-blue-500" />
+      <span className="text-sm text-blue-600 font-medium">AIDoc is thinking...</span>
+    </div>
+    <div className="flex space-x-2">
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          initial={{ scale: 0.8 }}
+          animate={{ scale: [0.8, 1.2, 0.8] }}
+          transition={{
+            repeat: Infinity,
+            duration: 1,
+            delay: i * 0.2,
+            ease: "easeInOut"
+          }}
+          className="w-2 h-2 bg-blue-500 rounded-full"
+        />
+      ))}
+    </div>
+  </motion.div>
+);
+
+// Add this new component for error messages
+const ErrorMessage = ({ message }: { message: string }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: 20 }}
+    className="p-4 bg-red-50 border border-red-200 rounded-xl"
+  >
+    <div className="flex items-start space-x-3">
+      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+      <div>
+        <h4 className="font-medium text-red-800">Error</h4>
+        <p className="text-sm text-red-600 mt-1">{message}</p>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// Add interface for doctor information
+interface DoctorInfo {
+  name: string;
+  specialty: string;
+  address: string;
+  phone: string;
+  city: string;
+}
+
+const DoctorRecommendation = ({ doctor }: { doctor: DoctorInfo }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="bg-gradient-to-r from-blue-50 to-white rounded-lg border border-blue-100 p-4 mt-2"
+  >
+    <div className="flex items-start space-x-3">
+      <div className="p-2 bg-blue-100 rounded-full">
+        <User className="w-5 h-5 text-blue-600" />
+      </div>
+      <div className="flex-1">
+        <h4 className="font-semibold text-blue-800">{doctor.name}</h4>
+        <p className="text-sm text-blue-600 mt-1">{doctor.specialty}</p>
+        <div className="mt-2 space-y-1 text-sm text-gray-600">
+          <p className="flex items-center">
+            <MapPin className="w-4 h-4 mr-2" />
+            {doctor.address}
+          </p>
+          <p className="flex items-center">
+            <Phone className="w-4 h-4 mr-2" />
+            {doctor.phone}
+          </p>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);
+
+export function Chat() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(location.state?.chatId || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const patientInfo = location.state?.patientInfo as PatientInfo;
+  const restoredMessages = location.state?.messages as Message[];
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Add new state for download content
+  const [downloadableContent, setDownloadableContent] = useState({
+    chatTranscript: '',
+    medicalSummary: '',
+    analysisResults: ''
+  });
+
+  // Add state for analyses
+  const [analyses, setAnalyses] = useState<{
+    analysis?: string;
+    summary?: string;
+    transcript?: string;
+  }>({});
+
+  // Add state for current topic
+  const [currentTopic, setCurrentTopic] = useState<string | null>(null);
+
+  // Function to extract topic from AI response
+  const extractTopic = (content: string): string | null => {
+    const topicMatch = content.match(/# Current Topic: (.*?)(\n|$)/);
+    return topicMatch ? topicMatch[1].trim() : null;
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setError('Failed to sign out. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    if (!patientInfo) {
+      navigate('/form');
+      return;
+    }
+
+    // If we have restored messages, use them instead of the initial greeting
+    if (restoredMessages && restoredMessages.length > 0) {
+      setMessages(restoredMessages);
+    } else {
+      // Set initial greeting for new chats
+      setMessages([{
+        role: 'assistant',
+        content: `👋 Hello ${patientInfo.name}! I'm AiDoc, your smart AI doctor assistant. I'm here to help you with any health-related concerns you may have! 🏥\n\nHow are you feeling today? 😊`
+      }]);
+    }
+  }, [patientInfo, restoredMessages, navigate]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Save chat session when messages update
+  useEffect(() => {
+    const saveChat = async () => {
+      if (messages.length > 0 && auth.currentUser && patientInfo) {
+        try {
+          setError(null);
+          if (!chatId) {
+            // Create new chat session
+            const newChatId = await chatService.saveChatSession(
+              auth.currentUser.uid,
+              patientInfo,
+              messages
+            );
+            setChatId(newChatId);
+          } else {
+            // Update existing chat session
+            await chatService.updateChatSession(chatId, messages);
+          }
+        } catch (error) {
+          console.error('Error saving chat:', error);
+          setError('.');
+        }
+      }
+    };
+
+    // Only save if messages have changed and it's not the initial load of a restored chat
+    if (!restoredMessages || messages !== restoredMessages) {
+      saveChat();
+    }
+  }, [messages, patientInfo, chatId, restoredMessages]);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (chatId) {
+      const unsubscribe = chatService.subscribeToChat(chatId, (session) => {
+        setMessages(session.messages);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [chatId]);
+
+  // Update downloadable content when messages change
+  useEffect(() => {
+    const transcript = messages
+      .map(msg => `${msg.role === 'user' ? 'You' : 'AiDoc'}: ${msg.content}`)
+      .join('\n\n');
+
+    const summary = messages
+      .filter(msg => msg.role === 'assistant' && msg.content.includes('Summary'))
+      .map(msg => msg.content)
+      .join('\n\n');
+
+    const analysis = messages
+      .filter(msg => msg.role === 'assistant' && msg.content.includes('Analysis'))
+      .map(msg => msg.content)
+      .join('\n\n');
+
+    setDownloadableContent({
+      chatTranscript: transcript,
+      medicalSummary: summary || 'No medical summary available yet.',
+      analysisResults: analysis || 'No analysis results available yet.'
+    });
+  }, [messages]);
+
+  // Function to save analyses
+  const saveAnalyses = async () => {
+    if (!chatId || !auth.currentUser) return;
+
+    try {
+      // Generate and save analysis
+      const analysis = generateAnalysis(messages);
+      await chatService.saveAnalysis(
+        auth.currentUser.uid,
+        chatId,
+        'analysis',
+        analysis
+      );
+
+      // Generate and save medical summary
+      const summary = generateMedicalSummary(messages, patientInfo);
+      await chatService.saveAnalysis(
+        auth.currentUser.uid,
+        chatId,
+        'summary',
+        summary
+      );
+
+      // Save chat transcript
+      const transcript = messages
+        .map(msg => `${msg.role === 'user' ? 'You' : 'AiDoc'}: ${msg.content}`)
+        .join('\n\n');
+      await chatService.saveAnalysis(
+        auth.currentUser.uid,
+        chatId,
+        'transcript',
+        transcript
+      );
+
+      // Load latest analyses
+      const latestAnalyses = await chatService.getLatestAnalyses(chatId);
+      setAnalyses({
+        analysis: latestAnalyses.analysis?.content,
+        summary: latestAnalyses.summary?.content,
+        transcript: latestAnalyses.transcript?.content
+      });
+    } catch (error) {
+      console.error('Error saving analyses:', error);
+      setError('Failed to save analyses. Please try again.');
+    }
+  };
+
+  // Save analyses when messages update
+  useEffect(() => {
+    if (messages.length > 0 && chatId) {
+      saveAnalyses();
+    }
+  }, [messages, chatId]);
+
+  // Load analyses when chat loads
+  useEffect(() => {
+    const loadAnalyses = async () => {
+      if (!chatId) return;
+
+      try {
+        const latestAnalyses = await chatService.getLatestAnalyses(chatId);
+        setAnalyses({
+          analysis: latestAnalyses.analysis?.content,
+          summary: latestAnalyses.summary?.content,
+          transcript: latestAnalyses.transcript?.content
+        });
+      } catch (error) {
+        console.error('Error loading analyses:', error);
+        setError('Failed to load analyses. Please try again.');
+      }
+    };
+
+    loadAnalyses();
+  }, [chatId]);
+
+  // Modify the formatAIResponse function to handle doctor recommendations
+  const formatAIResponse = (content: string): JSX.Element => {
+    const sections = content.split('\n').filter(line => line.trim());
+    
+    return (
+      <div className="space-y-3">
+        {sections.map((section, index) => {
+          // Doctor recommendation section
+          if (section.includes('Recommended Doctor:')) {
+            const doctorInfo = extractDoctorInfo(section);
+            return doctorInfo ? <DoctorRecommendation key={index} doctor={doctorInfo} /> : null;
+          }
+
+          // Main heading (starts with #)
+          if (section.startsWith('#')) {
+            return (
+              <motion.h2 
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-lg font-bold text-gray-800 mt-4 first:mt-0"
+              >
+                {section.replace('#', '').trim()}
+              </motion.h2>
+            );
+          }
+          
+          // Section heading (ends with ':')
+          if (section.trim().endsWith(':')) {
+            return (
+              <motion.h3 
+                key={index}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="font-semibold text-gray-800 mt-3 first:mt-0"
+              >
+                {section}
+              </motion.h3>
+            );
+          }
+          
+          // Bullet points
+          if (section.trim().startsWith('-') || section.trim().match(/^\d+\./)) {
+            return (
+              <motion.div 
+                key={index}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-start space-x-2 pl-4"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-2 flex-shrink-0"></div>
+                <p className="text-gray-700 leading-relaxed">
+                  {section.replace(/^-|\d+\.\s*/, '').trim()}
+                </p>
+              </motion.div>
+            );
+          }
+          
+          // Important points (starts with *)
+          if (section.trim().startsWith('*')) {
+            return (
+              <motion.p 
+                key={index}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-gray-800 font-medium pl-4 leading-relaxed flex items-start space-x-2"
+              >
+                <AlertCircle className="w-4 h-4 text-amber-500 mt-1 flex-shrink-0" />
+                <span>{section.replace('*', '').trim()}</span>
+              </motion.p>
+            );
+          }
+          
+          // Regular paragraph
+          return (
+            <motion.p 
+              key={index}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-gray-700 leading-relaxed"
+            >
+              {section}
+            </motion.p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Add this helper function to extract doctor information from the message
+  const extractDoctorInfo = (section: string): DoctorInfo | null => {
+    try {
+      const lines = section.split('\n');
+      const name = lines[0].replace('Recommended Doctor:', '').trim();
+      const specialty = lines.find(l => l.includes('Specialty:'))?.split(':')[1].trim() || '';
+      const address = lines.find(l => l.includes('Address:'))?.split(':')[1].trim() || '';
+      const phone = lines.find(l => l.includes('Phone:'))?.split(':')[1].trim() || '';
+      const city = lines.find(l => l.includes('City:'))?.split(':')[1].trim() || '';
+
+      return {
+        name,
+        specialty,
+        address,
+        phone,
+        city
+      };
+    } catch (error) {
+      console.error('Error extracting doctor info:', error);
+      return null;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if ((!input.trim() && !selectedFile) || isLoading) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      let newMessages: Message[] = [];
+
+      // Add user's message to the chat
+      if (input.trim()) {
+        const userMessage: Message = {
+          role: 'user',
+          content: input.trim()
+        };
+        newMessages.push(userMessage);
+        setMessages(prev => [...prev, userMessage]);
+      }
+
+      // Show typing indicator
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '...'
+      }]);
+
+      // Get AI response
+      const response = await generateChatResponse([...messages, ...newMessages]);
+      
+      // Remove typing indicator and add actual response
+      setMessages(prev => [...prev.slice(0, -1), response]);
+
+      // Clear input and file
+      setInput('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+    } catch (error) {
+      console.error('Error in chat:', error);
+      setError('Failed to get response. Please try again.');
+      // Remove typing indicator if present
+      setMessages(prev => prev.filter(msg => msg.content !== '...'));
+      
+      // Add error message to chat
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `I apologize, but I'm having trouble analyzing your report right now. Please try:
+1. Checking your internet connection
+2. Refreshing the page
+3. Sending your message again
+
+If you're sharing a medical report, make sure to include:
+- All test values and their reference ranges
+- Your current symptoms
+- Medical history
+- Current medications
+- Your location (for doctor recommendations)
+
+Need immediate medical attention? Please contact your healthcare provider directly.`
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+        setSelectedFile(file);
+        // Call the handleFileUpload function immediately when a file is selected
+        handleFileUpload(file);
+      } else {
+        alert('Please upload only images or PDF files');
+      }
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && input.trim() && !isLoading) {
+      e.preventDefault();
+      handleSubmit(e as any);
+    }
+  };
+
+  // Update the message rendering to format AI responses on display
+  const renderMessageContent = (message: Message) => {
+    if (message.role === 'user') {
+      return <p className="text-[15px] leading-relaxed">{message.content}</p>;
+    }
+    return formatAIResponse(message.content as string);
+  };
+
+  // Move extractPDFContent here so it has access to setMessages
+  const extractPDFContent = async (file: File, updateStatus: (status: string) => void): Promise<string> => {
+    try {
+      // Try to validate that the worker is available
+      const isWorkerAvailable = await validatePDFWorker();
+      
+      if (!isWorkerAvailable) {
+        // If the worker isn't available, try to use a different version
+        console.log('Worker not available, trying alternative version...');
+        updateStatus('Trying alternative PDF processing method...');
+        
+        // Set to disable workers completely (this is the proper way)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+      }
+      
+      const arrayBuffer = await file.arrayBuffer();
+      updateStatus('Loading PDF...');
+      
+      let pdf;
+      
+      try {
+        // First try with the automatic worker selection
+        pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      } catch (error) {
+        console.error('First PDF loading attempt failed:', error);
+        updateStatus('Trying alternative PDF processing method...');
+        
+        try {
+          // Force disable workers as a fallback
+          // Save the current worker URL
+          const originalWorkerSrc = pdfjsLib.GlobalWorkerOptions.workerSrc;
+          
+          // Disable workers
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+          
+          // Try loading without workers
+          pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+          
+          // Restore the original worker URL
+          pdfjsLib.GlobalWorkerOptions.workerSrc = originalWorkerSrc;
+        } catch (workerlessError) {
+          console.error('Even workerless PDF loading failed:', workerlessError);
+          throw new Error('All PDF loading attempts failed. Please try with a different file format.');
+        }
+      }
+      
+      let fullText = '';
+      const numPages = pdf.numPages;
+      
+      updateStatus(`Processing PDF (0/${numPages} pages)...`);
+      
+      for (let i = 1; i <= numPages; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          fullText += pageText + '\n\n';
+
+          updateStatus(`Processing PDF (${i}/${numPages} pages)...`);
+        } catch (pageError) {
+          console.error(`Error processing page ${i}:`, pageError);
+          continue; // Continue with next page if one fails
+        }
+      }
+      
+      if (!fullText.trim()) {
+        throw new Error('No readable text found in the PDF. The file might be scanned or image-based.');
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('PDF processing error:', error);
+      throw new Error(
+        error instanceof Error 
+          ? `PDF processing error: ${error.message}` 
+          : 'Failed to process PDF file'
+      );
+    }
+  };
+
+  // Update handleFileUpload function to handle PDF processing errors better
+  const handleFileUpload = async (file: File) => {
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      try {
+        setIsLoading(true);
+        
+        // Show initial processing message
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `📄 Processing your ${file.type.includes('pdf') ? 'PDF' : 'image'} file: ${file.name}...`
+        }]);
+
+        if (file.type === 'application/pdf') {
+          try {
+            // Validate file
+            if (file.size === 0) {
+              throw new Error('The PDF file is empty');
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              throw new Error('File is too large (max 10MB)');
+            }
+
+            // Status update function
+            const updateStatus = (status: string) => {
+              setMessages(prev => [...prev.slice(0, -1), {
+                role: 'assistant',
+                content: `🔄 ${status}`
+              }]);
+            };
+
+            // Try to process with a timeout to prevent hanging
+            let pdfContent = '';
+            const pdfProcessingTimeout = new Promise<string>((_, reject) => {
+              setTimeout(() => reject(new Error('PDF processing timed out')), 30000); // 30 second timeout
+            });
+            
+            try {
+              pdfContent = await Promise.race([
+                extractPDFContent(file, updateStatus),
+                pdfProcessingTimeout
+              ]);
+            } catch (pdfError) {
+              console.error('PDF extraction error:', pdfError);
+              throw new Error(pdfError instanceof Error ? pdfError.message : 'Failed to extract PDF content');
+            }
+
+            // Create analysis message
+            const analysisMessage: Message = {
+              role: 'user',
+              content: `Please analyze this medical report thoroughly:\n\n${pdfContent}`
+            };
+
+            // Update status
+            setMessages(prev => [...prev.slice(0, -1), {
+              role: 'assistant',
+              content: '🔍 Analyzing medical data...'
+            }]);
+
+            // Get AI analysis
+            const response = await generateChatResponse([...messages, analysisMessage]);
+
+            // Show final analysis
+            setMessages(prev => [...prev.slice(0, -1), response]);
+
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Unable to process PDF: ${errorMessage}`);
+          }
+        } else {
+          // Handle image files
+          setMessages(prev => [...prev.slice(0, -1), {
+            role: 'assistant',
+            content: `I see you've uploaded an image file (${file.name}). 
+
+To help you better, please share:
+
+📋 Report Details:
+• Test results and values
+• Reference ranges
+• Any abnormal results
+• Test date
+
+🏥 Your Information:
+• Current symptoms
+• Medical history
+• Medications
+• Location (for doctor recommendations)
+
+You can either:
+1. Type the information here
+2. Upload a PDF version if available
+3. Take a clearer photo of the report`
+          }]);
+        }
+
+      } catch (error) {
+        console.error('File processing error:', error);
+        
+        setMessages(prev => [...prev.slice(0, -1), {
+          role: 'assistant',
+          content: `⚠️ I encountered an issue with your file.
+
+${error instanceof Error ? `Problem: ${error.message}
+
+` : ''}Here's how we can proceed:
+
+1. For PDF files:
+   • Make sure it's a text-based PDF (not scanned)
+   • Try saving it again in PDF format using a different PDF viewer
+   • Check if you can copy text from it in a PDF viewer
+
+2. Alternative options:
+   • Type the report details directly in our chat
+   • Share specific test results one by one
+   • Take photos of individual sections
+
+Would you like to:
+1. Share the report details manually?
+2. Try a different file format?
+3. Get help with specific test results?
+
+I'm ready to help analyze your results whichever way works best for you! 🩺`
+        }]);
+      } finally {
+        setIsLoading(false);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      {/* Enhanced Header */}
+      <div className="bg-white shadow-md border-b border-blue-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+            {/* Logo and Title */}
+            <div className="flex items-center">
+              <div className="flex items-center space-x-3">
+                <Brain className="h-8 w-8 text-blue-600" />
+                <div>
+                  <h1 className="text-2xl font-bold text-blue-600">AIDoc</h1>
+                  <p className="text-sm text-gray-500">Your AI Medical Assistant</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex items-center space-x-6">
+              <Link
+                to="/history"
+                className="flex items-center px-4 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+              >
+                <History className="h-5 w-5 mr-2" />
+                Chat History
+              </Link>
+              <div className="h-6 w-px bg-gray-200"></div>
+              <div className="flex items-center">
+                <span className="text-gray-600 mr-4">{auth.currentUser?.displayName || auth.currentUser?.email}</span>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center px-4 py-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="h-5 w-5 mr-2" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Sidebar - Patient Info */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Patient Information Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <User className="h-5 w-5 mr-2 text-blue-500" />
+                Patient Information
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Name</span>
+                  <span className="font-medium text-gray-900">{patientInfo?.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Age</span>
+                  <span className="font-medium text-gray-900">{patientInfo?.age} years</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Gender</span>
+                  <span className="font-medium text-gray-900">{patientInfo?.gender}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Country</span>
+                  <span className="font-medium text-gray-900">{patientInfo?.country}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Download Options */}
+            <DownloadOptions
+              chatTranscript={analyses.transcript || ''}
+              medicalSummary={analyses.summary || ''}
+              analysisResults={analyses.analysis || ''}
+            />
+          </div>
+
+          {/* Chat Area */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+              {/* Chat Messages */}
+              <div className="h-[600px] overflow-y-auto p-6 space-y-6">
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={message.role === 'assistant' ? { opacity: 0, y: 20 } : { opacity: 1 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ 
+                      duration: 0.5,
+                      ease: [0.4, 0, 0.2, 1]
+                    }}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`flex items-start space-x-3 max-w-[80%] ${
+                        message.role === 'user'
+                          ? 'flex-row-reverse space-x-reverse'
+                          : ''
+                      }`}
+                    >
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ 
+                          type: "spring",
+                          stiffness: 260,
+                          damping: 20 
+                        }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          message.role === 'user'
+                            ? 'bg-blue-100'
+                            : 'bg-green-100'
+                        }`}
+                      >
+                        {message.role === 'user' ? (
+                          <User className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <Bot className="w-5 h-5 text-green-600" />
+                        )}
+                      </motion.div>
+                      <motion.div
+                        initial={{ 
+                          opacity: 0, 
+                          scale: 0.8,
+                          x: message.role === 'assistant' ? -20 : 20 
+                        }}
+                        animate={{ 
+                          opacity: 1, 
+                          scale: 1, 
+                          x: 0
+                        }}
+                        transition={{
+                          type: "spring",
+                          damping: 25,
+                          stiffness: 300,
+                          duration: 0.5
+                        }}
+                        whileHover={{ 
+                          scale: 1.01,
+                          transition: { duration: 0.2 } 
+                        }}
+                        className={`p-4 rounded-2xl ${
+                          message.role === 'user'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gradient-to-br from-gray-50 to-white border border-gray-100'
+                        }`}
+                      >
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.2, duration: 0.3 }}
+                          className="flex items-center space-x-2 mb-2"
+                        >
+                          <span className="font-medium">
+                            {message.role === 'user' ? 'You' : 'AIDoc'}
+                          </span>
+                          <span className="text-xs opacity-75">
+                            {format(new Date(), 'HH:mm')}
+                          </span>
+                        </motion.div>
+                        <AnimatePresence mode="wait">
+                          {message.content === '...' ? (
+                            <TypingIndicator />
+                          ) : (
+                            <motion.div 
+                              key="content"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ delay: 0.1, duration: 0.3 }}
+                              className={message.role === 'user' ? 'text-white' : 'text-gray-700'}
+                            >
+                              {renderMessageContent(message)}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Area */}
+              <div className="border-t border-gray-100 p-4 bg-gray-50">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Type your message..."
+                        className="w-full px-4 py-3 rounded-lg bg-white border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-colors"
+                        disabled={isLoading}
+                      />
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={(!input.trim() && !selectedFile) || isLoading}
+                      className={`px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
+                        isLoading || (!input.trim() && !selectedFile)
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          <span>Send</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {selectedFile && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-blue-50 rounded-lg">
+                      <div className="flex items-center space-x-2 text-sm text-blue-600">
+                        <Paperclip className="w-4 h-4" />
+                        <span>{selectedFile.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFile(null)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

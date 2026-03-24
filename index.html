@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="./ab.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Primary Meta Tags -->
+    <title>AiDoctor | Your 24/7 AI Medical Assistant | Instant Health Consultation</title>
+    <meta name="title" content="AiDoctor.cloud | Your 24/7 AI Medical Assistant | Instant Health Consultation">
+    <meta name="description" content="🤖👨‍⚕️ Experience the future of healthcare with AiDoctor.cloud. Get instant medical advice, symptom analysis, and personalized health recommendations. Available 24/7, no waiting rooms, instant responses. Try our AI doctor now!">
+    
+    <!-- Keywords -->
+    <meta name="keywords" content="AiDoctor.cloud, AI doctor online, best AI medical assistant, instant medical advice, virtual doctor consultation, 24/7 healthcare assistant, medical symptom checker, AI health diagnosis, online medical consultation, digital healthcare platform, medical chatbot, virtual health assistant, smart medical assistant, healthcare AI technology, medical advice online, symptom analysis AI, personal health assistant, medical consultation app, AI healthcare solution, medical expert system">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://aidoctor.cloud/">
+    <meta property="og:title" content="AiDoctor.cloud - Your Personal AI Medical Assistant Available 24/7">
+    <meta property="og:description" content="🏥 Instant medical consultations powered by AI. Get immediate health advice, symptom analysis, and personalized recommendations. No waiting, no appointments needed. Experience the future of healthcare today!">
+    <meta property="og:image" content="https://aidoctor.cloud/path-to-your-banner-image.jpg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://aidoctor.cloud/">
+    <meta property="twitter:title" content="AiDoctor.cloud - Revolutionary AI-Powered Medical Assistant">
+    <meta property="twitter:description" content="🌟 Transform your healthcare experience with AiDoctor.cloud. Instant medical advice, 24/7 availability, and personalized health insights. Join thousands of satisfied users!">
+    <meta property="twitter:image" content="https://aidoctor.cloud/path-to-your-banner-image.jpg">
+
+    <!-- Additional SEO Meta Tags -->
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="author" content="AiDoctor.cloud">
+    <meta name="language" content="English">
+    <link rel="canonical" href="https://aidoctor.cloud/" />
+    <meta name="theme-color" content="#0066FF">
+    <meta name="rating" content="General">
+    <meta name="copyright" content="AiDoctor.cloud">
+    <meta name="revisit-after" content="1 days">
+
+    <!-- Theme Script -->
+    <script>
+      // Immediately set initial theme
+      (function() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+          document.documentElement.classList.add(savedTheme);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.add('light');
+        }
+      })();
+    </script>
+
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "AiDoctor.cloud",
+        "description": "Revolutionary AI-powered medical consultation platform providing instant healthcare assistance with advanced machine learning technology",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "All",
+        "url": "https://aidoctor.cloud",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "✨ 24/7 Instant Medical Assistance",
+          "🤖 Advanced AI-Powered Diagnosis",
+          "🔍 Comprehensive Symptom Analysis",
+          "📋 Personalized Health Recommendations",
+          "💬 Interactive Medical Chat Interface",
+          "📱 Mobile-Friendly Platform",
+          "🔒 Secure & Private Consultations",
+          "📊 Health Tracking & Monitoring"
+        ],
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.8",
+          "ratingCount": "1250",
+          "bestRating": "5",
+          "worstRating": "1"
+        },
+        "award": [
+          "Most Innovative Healthcare AI Solution 2024",
+          "Best Medical Assistant App"
+        ]
+      }
+    </script>
+
+    <!-- FAQ Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{
+          "@type": "Question",
+          "name": "What is AiDoctor.cloud?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AiDoctor.cloud is an advanced AI-powered medical assistant that provides instant health consultations, symptom analysis, and personalized medical advice 24/7. It uses cutting-edge artificial intelligence to help users understand their health concerns and get immediate guidance."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is AiDoctor.cloud available 24/7?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, AiDoctor.cloud is available 24 hours a day, 7 days a week. You can get instant medical advice and consultation at any time, from anywhere in the world."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How accurate is AiDoctor.cloud's medical advice?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AiDoctor.cloud uses advanced machine learning algorithms trained on extensive medical data to provide highly accurate medical information. However, it's designed to complement, not replace, professional medical advice."
+          }
+        }]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
