@@ -12,7 +12,7 @@
 
 *Revolutionizing healthcare with intelligent automation, professional reporting, and seamless patient management*
 
-[🌐 Live Demo](https://abushalem.site) • [📖 Documentation](#documentation) • [🎯 Features](#features) • [🛠️ Installation](#installation)
+[🌐 Live Demo](https://abushalem.site) • [📖 Documentation](#-overview) • [🎯 Features](#-features) • [🛠️ Installation](#-installation)
 
 ---
 
@@ -225,8 +225,8 @@ src/
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/yourusername/aidoc.git
-cd aidoc
+git clone https://github.com/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System.git
+cd AIDoc---Intelligent-Medical-Management-System
 ```
 
 ### Step 2: Install Dependencies
@@ -732,8 +732,8 @@ We welcome contributions! Please follow these steps:
 
 ### 1. Fork the Repository
 ```bash
-git clone https://github.com/yourusername/aidoc.git
-cd aidoc
+git clone https://github.com/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System.git
+cd AIDoc---Intelligent-Medical-Management-System
 ```
 
 ### 2. Create a Feature Branch
@@ -810,9 +810,9 @@ copies or substantial portions of the Software.
 ### **Md Abu Shalem Alam**
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-abushalem.site-0D6EFD?style=for-the-badge&logo=google-chrome&logoColor=white)](https://abushalem.site)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yourusername)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/yourprofile)
-[![Email](https://img.shields.io/badge/Email-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:your.email@example.com)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/MD-HACKER07)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/md-abu-shalem-alam)
+[![Email](https://img.shields.io/badge/Email-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:contact@abushalem.site)
 
 **Full-Stack Developer | AI Enthusiast | Healthcare Technology Innovator**
 
@@ -841,7 +841,7 @@ Need help? We're here for you!
 - 📧 Email: support@aidoc.com
 - 💬 Discord: [Join our community](https://discord.gg/aidoc)
 - 📖 Documentation: [docs.aidoc.com](https://docs.aidoc.com)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/aidoc/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System/issues)
 
 ---
 
@@ -872,14 +872,14 @@ Need help? We're here for you!
 
 <div align="center">
 
-![GitHub stars](https://img.shields.io/github/stars/yourusername/aidoc?style=social)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/aidoc?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/yourusername/aidoc?style=social)
+![GitHub stars](https://img.shields.io/github/stars/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System?style=social)
+![GitHub forks](https://img.shields.io/github/forks/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System?style=social)
 
-![GitHub issues](https://img.shields.io/github/issues/yourusername/aidoc)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/yourusername/aidoc)
-![GitHub last commit](https://img.shields.io/github/last-commit/yourusername/aidoc)
-![GitHub repo size](https://img.shields.io/github/repo-size/yourusername/aidoc)
+![GitHub issues](https://img.shields.io/github/issues/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System)
+![GitHub last commit](https://img.shields.io/github/last-commit/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System)
+![GitHub repo size](https://img.shields.io/github/repo-size/MD-HACKER07/AIDoc---Intelligent-Medical-Management-System)
 
 </div>
 
@@ -889,7 +889,7 @@ Need help? We're here for you!
 
 <div align="center">
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/aidoc&type=Date)](https://star-history.com/#yourusername/aidoc&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=MD-HACKER07/AIDoc---Intelligent-Medical-Management-System&type=Date)](https://star-history.com/#MD-HACKER07/AIDoc---Intelligent-Medical-Management-System&Date)
 
 </div>
 
